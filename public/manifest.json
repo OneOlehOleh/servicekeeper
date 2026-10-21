@@ -1,0 +1,17 @@
+{
+  "name": "МотоЖурнал — Сервисный учет гаража",
+  "short_name": "МотоЖурнал",
+  "description": "Сервисный учет моточасов и регламентов ТО для мотоциклов, катеров, эндуро и техники",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
