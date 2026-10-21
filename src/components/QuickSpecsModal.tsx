@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Vehicle, QuickSpecs } from '@/types/garage';
 import { useGarage } from '@/context/GarageContext';
-import { X, Edit3, Check } from 'lucide-react';
+import { POPULAR_PRESETS } from '@/data/vehiclePresets';
+import { X, Edit3, Check, Sparkles } from 'lucide-react';
 
 interface QuickSpecsModalProps {
   vehicle: Vehicle;
@@ -171,6 +172,30 @@ export function QuickSpecsModal({ vehicle, onClose }: QuickSpecsModalProps) {
           ) : (
             /* Editing Form */
             <div className="space-y-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
+                <div className="flex items-center gap-1.5 text-zinc-400 font-medium mb-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Заполнить параметры из каталога</span>
+                </div>
+                <select
+                  onChange={(e) => {
+                    const preset = POPULAR_PRESETS.find((p) => p.id === e.target.value);
+                    if (preset) {
+                      setFormSpecs({ ...formSpecs, ...preset.specs });
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs focus:outline-none"
+                  defaultValue=""
+                >
+                  <option value="">-- Выбрать модель для подстановки --</option>
+                  {POPULAR_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-zinc-400 mb-1">Моторное масло (вязкость, стандарт)</label>
                 <input

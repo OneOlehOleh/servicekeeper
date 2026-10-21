@@ -51,6 +51,7 @@ export default function Home() {
     }[] = [];
 
     vehicles.forEach((v) => {
+      if (v.isArchived) return; // Do not alert for archived vehicles
       const urgency = getVehicleUrgency(v);
       if (urgency.overdueCount > 0) overdueVehiclesCount++;
       else if (urgency.dueSoonCount > 0) dueSoonVehiclesCount++;
@@ -77,8 +78,13 @@ export default function Home() {
 
   // Counts by category
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: vehicles.length };
-    vehicles.forEach((v) => {
+    const activeVehicles = vehicles.filter((v) => !v.isArchived);
+    const archivedVehicles = vehicles.filter((v) => v.isArchived);
+    const counts: Record<string, number> = {
+      all: activeVehicles.length,
+      archived: archivedVehicles.length,
+    };
+    activeVehicles.forEach((v) => {
       counts[v.category] = (counts[v.category] || 0) + 1;
     });
     return counts;
@@ -87,13 +93,20 @@ export default function Home() {
   // Filtered vehicles
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((v) => {
-      const matchesCat = selectedCategory === 'all' || v.category === selectedCategory;
+      if (selectedCategory === 'archived') {
+        if (!v.isArchived) return false;
+      } else {
+        if (v.isArchived) return false;
+        if (selectedCategory !== 'all' && v.category !== selectedCategory) return false;
+      }
+
       const matchesSearch =
         searchQuery.trim() === '' ||
         v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         v.specs.engineOil?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         v.specs.oilFilter?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCat && matchesSearch;
+
+      return matchesSearch;
     });
   }, [vehicles, selectedCategory, searchQuery]);
 

@@ -8,7 +8,7 @@ interface CategoryFilterProps {
   counts: Record<string, number>;
 }
 
-const CATEGORIES: { id: string; label: string; icon: string }[] = [
+const BASE_CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'all', label: 'Вся техника', icon: '⚡' },
   { id: 'road_moto', label: 'Дорожные', icon: '🏍️' },
   { id: 'enduro_pit', label: 'Эндуро / Питбайки', icon: '🏁' },
@@ -18,9 +18,16 @@ const CATEGORIES: { id: string; label: string; icon: string }[] = [
 ];
 
 export function CategoryFilter({ selectedCategory, onSelectCategory, counts }: CategoryFilterProps) {
+  const archivedCount = counts['archived'] ?? 0;
+
+  const categories = [...BASE_CATEGORIES];
+  if (archivedCount > 0 || selectedCategory === 'archived') {
+    categories.push({ id: 'archived', label: 'Архив', icon: '📦' });
+  }
+
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none no-scrollbar">
-      {CATEGORIES.map((cat) => {
+      {categories.map((cat) => {
         const count = counts[cat.id] ?? 0;
         const isActive = selectedCategory === cat.id;
 

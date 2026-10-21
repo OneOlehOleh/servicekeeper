@@ -40,6 +40,8 @@ export interface Vehicle {
   currentHours?: number;
   currentKm?: number;
   lastUpdatedDate: string;
+  isArchived?: boolean;
+  archivedDate?: string;
   specs: QuickSpecs;
   rules: MaintenanceRule[];
 }

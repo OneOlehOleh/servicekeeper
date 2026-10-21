@@ -25,6 +25,8 @@ interface GarageContextType {
   updateQuickSpecs: (vehicleId: string, specs: Partial<QuickSpecs>) => void;
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
   deleteVehicle: (vehicleId: string) => void;
+  archiveVehicle: (vehicleId: string) => void;
+  unarchiveVehicle: (vehicleId: string) => void;
   addRuleToVehicle: (vehicleId: string, rule: Omit<MaintenanceRule, 'id'>) => void;
   deleteRuleFromVehicle: (vehicleId: string, ruleId: string) => void;
   resetAllData: () => void;
@@ -203,6 +205,22 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const archiveVehicle = (vehicleId: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    setVehicles((prev) =>
+      prev.map((v) => (v.id === vehicleId ? { ...v, isArchived: true, archivedDate: today } : v))
+    );
+    if (selectedVehicleId === vehicleId) {
+      setSelectedVehicleId(null);
+    }
+  };
+
+  const unarchiveVehicle = (vehicleId: string) => {
+    setVehicles((prev) =>
+      prev.map((v) => (v.id === vehicleId ? { ...v, isArchived: false, archivedDate: undefined } : v))
+    );
+  };
+
   const addRuleToVehicle = (vehicleId: string, ruleData: Omit<MaintenanceRule, 'id'>) => {
     const id = 'rule-' + Date.now();
     const newRule: MaintenanceRule = { ...ruleData, id };
@@ -273,6 +291,8 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         updateQuickSpecs,
         addVehicle,
         deleteVehicle,
+        archiveVehicle,
+        unarchiveVehicle,
         addRuleToVehicle,
         deleteRuleFromVehicle,
         resetAllData,
