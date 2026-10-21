@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Vehicle, ServiceRecord, QuickSpecs, MaintenanceRule } from '@/types/garage';
 import { INITIAL_VEHICLES, INITIAL_SERVICE_LOGS } from '@/data/initialFleet';
+import { CommunityPreset, INITIAL_COMMUNITY_PRESETS } from '@/data/communityPresets';
 
 export type DesignConcept = 'garage_pro' | 'swiss_minimal' | 'cockpit';
 
@@ -35,11 +36,15 @@ interface GarageContextType {
   login: (email: string) => void;
   loginAsGuest: () => void;
   logout: () => void;
+  communityPresets: CommunityPreset[];
+  shareToCommunity: (vehicleId: string, authorName: string) => boolean;
+  upvoteCommunityPreset: (presetId: string) => void;
 }
 
 const STORAGE_KEY = 'moto_ledger_data_v1';
 const USER_KEY = 'moto_ledger_user_v1';
 const CONCEPT_KEY = 'moto_ledger_concept_v1';
+const COMMUNITY_KEY = 'moto_ledger_community_v1';
 
 const GarageContext = createContext<GarageContextType | null>(null);
 
@@ -48,6 +53,7 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   const [designConcept, setDesignConceptState] = useState<DesignConcept>('garage_pro');
   const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
   const [serviceLogs, setServiceLogs] = useState<ServiceRecord[]>(INITIAL_SERVICE_LOGS);
+  const [communityPresets, setCommunityPresets] = useState<CommunityPreset[]>(INITIAL_COMMUNITY_PRESETS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -62,6 +68,14 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem(USER_KEY);
       if (storedUser) {
         setUser(JSON.parse(storedUser));
+      }
+
+      const storedComm = localStorage.getItem(COMMUNITY_KEY);
+      if (storedComm) {
+        const parsed = JSON.parse(storedComm);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCommunityPresets(parsed);
+        }
       }
 
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -80,6 +94,16 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
       setIsHydrated(true);
     }
   }, []);
+
+  // Save community presets
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      localStorage.setItem(COMMUNITY_KEY, JSON.stringify(communityPresets));
+    } catch (e) {
+      console.error('Failed to save community presets to localStorage', e);
+    }
+  }, [communityPresets, isHydrated]);
 
   // Save concept
   const setDesignConcept = (concept: DesignConcept) => {
@@ -275,6 +299,37 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const shareToCommunity = (vehicleId: string, authorName: string): boolean => {
+    const target = vehicles.find((v) => v.id === vehicleId);
+    if (!target) return false;
+
+    const newPreset: CommunityPreset = {
+      id: 'comm-' + Date.now(),
+      name: target.name,
+      category: target.category,
+      primaryMetric: target.primaryMetric,
+      author: authorName.trim() || 'Гаражный механик',
+      verifiedCount: 1,
+      createdAt: new Date().toISOString().split('T')[0],
+      specs: { ...target.specs },
+      rules: target.rules.map((r) => ({
+        name: r.name,
+        intervalHours: r.intervalHours,
+        intervalKm: r.intervalKm,
+        intervalMonths: r.intervalMonths,
+      })),
+    };
+
+    setCommunityPresets((prev) => [newPreset, ...prev]);
+    return true;
+  };
+
+  const upvoteCommunityPreset = (presetId: string) => {
+    setCommunityPresets((prev) =>
+      prev.map((p) => (p.id === presetId ? { ...p, verifiedCount: p.verifiedCount + 1 } : p))
+    );
+  };
+
   return (
     <GarageContext.Provider
       value={{
@@ -283,6 +338,7 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         setDesignConcept,
         vehicles,
         serviceLogs,
+        communityPresets,
         isHydrated,
         selectedVehicleId,
         setSelectedVehicleId,
@@ -301,6 +357,8 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         login,
         loginAsGuest,
         logout,
+        shareToCommunity,
+        upvoteCommunityPreset,
       }}
     >
       {children}

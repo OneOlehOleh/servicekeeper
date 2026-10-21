@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Vehicle, QuickSpecs } from '@/types/garage';
 import { useGarage } from '@/context/GarageContext';
 import { POPULAR_PRESETS } from '@/data/vehiclePresets';
-import { X, Edit3, Check, Sparkles } from 'lucide-react';
+import { X, Edit3, Check, Sparkles, Globe, Bot, Loader2 } from 'lucide-react';
 
 interface QuickSpecsModalProps {
   vehicle: Vehicle;
@@ -12,13 +12,45 @@ interface QuickSpecsModalProps {
 }
 
 export function QuickSpecsModal({ vehicle, onClose }: QuickSpecsModalProps) {
-  const { updateQuickSpecs } = useGarage();
+  const { updateQuickSpecs, shareToCommunity } = useGarage();
   const [isEditing, setIsEditing] = useState(false);
   const [formSpecs, setFormSpecs] = useState<QuickSpecs>(vehicle.specs || {});
+  const [isShared, setIsShared] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
 
   const handleSave = () => {
     updateQuickSpecs(vehicle.id, formSpecs);
     setIsEditing(false);
+  };
+
+  const handleShare = () => {
+    const success = shareToCommunity(vehicle.id, 'Владелец техники');
+    if (success) {
+      setIsShared(true);
+      setTimeout(() => setIsShared(false), 3000);
+    }
+  };
+
+  const handleAiLookup = async () => {
+    setAiLoading(true);
+    setAiMessage(null);
+    try {
+      const res = await fetch('/api/ai/specs-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelName: vehicle.name }),
+      });
+      const data = await res.json();
+      if (data.result && data.result.specs) {
+        setFormSpecs((prev) => ({ ...prev, ...data.result.specs }));
+        setAiMessage(data.configured ? '✓ Спецификации обновлены через AI' : '✓ Демо-параметры подставлены');
+      }
+    } catch {
+      setAiMessage('Ошибка запроса к AI');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -172,11 +204,21 @@ export function QuickSpecsModal({ vehicle, onClose }: QuickSpecsModalProps) {
           ) : (
             /* Editing Form */
             <div className="space-y-3 text-xs">
-              <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800">
-                <div className="flex items-center gap-1.5 text-zinc-400 font-medium mb-1">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Заполнить параметры из каталога</span>
+              {/* Preset Selector & AI Button */}
+              <div className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400 font-medium">Автозаполнение параметров</span>
+                  <button
+                    type="button"
+                    onClick={handleAiLookup}
+                    disabled={aiLoading}
+                    className="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 flex items-center gap-1 font-medium disabled:opacity-50"
+                  >
+                    {aiLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bot className="w-3 h-3" />}
+                    <span>{aiLoading ? 'Запрос...' : '✨ Найти через AI'}</span>
+                  </button>
                 </div>
+
                 <select
                   onChange={(e) => {
                     const preset = POPULAR_PRESETS.find((p) => p.id === e.target.value);
@@ -187,13 +229,17 @@ export function QuickSpecsModal({ vehicle, onClose }: QuickSpecsModalProps) {
                   className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-200 text-xs focus:outline-none"
                   defaultValue=""
                 >
-                  <option value="">-- Выбрать модель для подстановки --</option>
+                  <option value="">-- Подставить из каталога пресетов --</option>
                   {POPULAR_PRESETS.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
                   ))}
                 </select>
+
+                {aiMessage && (
+                  <div className="text-[11px] text-emerald-400 mt-1 font-medium">{aiMessage}</div>
+                )}
               </div>
 
               <div>
@@ -301,11 +347,25 @@ export function QuickSpecsModal({ vehicle, onClose }: QuickSpecsModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-zinc-900 flex justify-end">
+        <div className="p-4 border-t border-zinc-900 flex items-center justify-between">
+          {!isEditing ? (
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={isShared}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
+            >
+              <Globe className="w-3.5 h-3.5 text-zinc-400" />
+              <span>{isShared ? '✓ Опубликовано в сообщество!' : 'Поделиться в базу сообщества'}</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 text-zinc-300 font-medium text-xs transition-colors"
+            className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 text-zinc-300 font-medium text-xs transition-colors"
           >
             Закрыть
           </button>
