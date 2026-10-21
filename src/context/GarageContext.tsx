@@ -4,6 +4,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Vehicle, ServiceRecord, QuickSpecs, MaintenanceRule } from '@/types/garage';
 import { INITIAL_VEHICLES, INITIAL_SERVICE_LOGS } from '@/data/initialFleet';
 
+export type DesignConcept = 'garage_pro' | 'swiss_minimal' | 'cockpit';
+
 export interface UserSession {
   email: string;
   isGuest?: boolean;
@@ -11,6 +13,8 @@ export interface UserSession {
 
 interface GarageContextType {
   user: UserSession | null;
+  designConcept: DesignConcept;
+  setDesignConcept: (concept: DesignConcept) => void;
   vehicles: Vehicle[];
   serviceLogs: ServiceRecord[];
   isHydrated: boolean;
@@ -33,11 +37,13 @@ interface GarageContextType {
 
 const STORAGE_KEY = 'moto_ledger_data_v1';
 const USER_KEY = 'moto_ledger_user_v1';
+const CONCEPT_KEY = 'moto_ledger_concept_v1';
 
 const GarageContext = createContext<GarageContextType | null>(null);
 
 export function GarageProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
+  const [designConcept, setDesignConceptState] = useState<DesignConcept>('garage_pro');
   const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
   const [serviceLogs, setServiceLogs] = useState<ServiceRecord[]>(INITIAL_SERVICE_LOGS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -46,6 +52,11 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage on client mount
   useEffect(() => {
     try {
+      const storedConcept = localStorage.getItem(CONCEPT_KEY);
+      if (storedConcept === 'garage_pro' || storedConcept === 'swiss_minimal' || storedConcept === 'cockpit') {
+        setDesignConceptState(storedConcept);
+      }
+
       const storedUser = localStorage.getItem(USER_KEY);
       if (storedUser) {
         setUser(JSON.parse(storedUser));
@@ -67,6 +78,14 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
       setIsHydrated(true);
     }
   }, []);
+
+  // Save concept
+  const setDesignConcept = (concept: DesignConcept) => {
+    setDesignConceptState(concept);
+    try {
+      localStorage.setItem(CONCEPT_KEY, concept);
+    } catch {}
+  };
 
   // Save data to localStorage when state changes
   useEffect(() => {
@@ -242,6 +261,8 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
     <GarageContext.Provider
       value={{
         user,
+        designConcept,
+        setDesignConcept,
         vehicles,
         serviceLogs,
         isHydrated,

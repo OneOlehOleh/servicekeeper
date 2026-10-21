@@ -5,6 +5,7 @@ import { useGarage } from '@/context/GarageContext';
 import { Vehicle } from '@/types/garage';
 import { getVehicleUrgency } from '@/lib/calculations';
 import { LandingPage } from '@/components/LandingPage';
+import { ConceptSwitcher } from '@/components/concepts/ConceptSwitcher';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { VehicleCard } from '@/components/VehicleCard';
 import { LogServiceModal } from '@/components/LogServiceModal';
@@ -195,6 +196,9 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-5 space-y-6">
+        {/* Interactive Concept Switcher (3 Styles) */}
+        <ConceptSwitcher />
+
         {/* Urgent Service Attention Banner */}
         {fleetStats.urgentItems.length > 0 && (
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-950/40 via-slate-900 to-amber-950/30 border border-rose-500/30 shadow-xl">
