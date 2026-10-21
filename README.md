@@ -62,3 +62,19 @@ npm run dev
    ```
 4. Откройте в Safari / Chrome на телефоне: `http://<IP-компьютера>:3000`
 5. В Safari нажмите **«Поделиться» → «На экран Домой»** (Add to Home Screen). Приложение установится как отдельное мобильное приложение на весь экран без рамок браузера.
+
+---
+
+## 🐳 Развертывание на публичном сервере (Docker)
+
+Для запуска на публичном хосте подготовлен легковесный Docker-образ (~140 МБ) с поддержкой Docker Compose, Caddy и Nginx:
+
+```bash
+# 1. Запуск через Docker Compose
+docker compose up -d --build
+
+# 2. Проверка статуса
+docker compose ps
+```
+
+Подробные инструкции по настройке домена, SSL/HTTPS (Let's Encrypt), Caddy, Nginx и облачных PaaS см. в [DEPLOY.md](DEPLOY.md).

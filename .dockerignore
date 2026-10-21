@@ -1,0 +1,25 @@
+# Dependencies & build output
+node_modules
+.next
+.git
+.gitignore
+
+# Environment files with sensitive credentials
+.env
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System files
+.DS_Store
+*.pem
+Thumbs.db
+
+# Documentation & deployment notes
+README.md
+DEPLOY.md
+deploy/

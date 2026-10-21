@@ -1,0 +1,30 @@
+services:
+  moto-ledger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: moto-ledger:latest
+    container_name: moto-ledger
+    restart: unless-stopped
+    ports:
+      # Map to host port (default 3000, can override via HOST_PORT in .env)
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    env_file:
+      - path: .env
+        required: false
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

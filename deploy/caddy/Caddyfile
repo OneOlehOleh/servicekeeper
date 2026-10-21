@@ -1,0 +1,16 @@
+# Замените moto.yourdomain.com на ваш реальный домен
+moto.yourdomain.com {
+    # Caddy автоматически получает и обновляет SSL сертификаты Let's Encrypt
+    reverse_proxy localhost:3000
+
+    # Сжатие gzip и zstd
+    encode zstd gzip
+
+    # Заголовки безопасности
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
