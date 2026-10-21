@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Vehicle } from '@/types/garage';
 import { useGarage } from '@/context/GarageContext';
 import { calculateRuleStatus } from '@/lib/calculations';
-import { CheckCircle2, Wrench, X, Sparkles, Plus, Calendar, DollarSign } from 'lucide-react';
+import { CheckCircle2, X, Plus } from 'lucide-react';
 
 interface LogServiceModalProps {
   initialVehicleId?: string;
@@ -121,22 +121,17 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden max-h-[94vh] flex flex-col">
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-[94vh] flex flex-col font-sans">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white">Внести проведенное ТО</h3>
-              <p className="text-xs text-slate-400">Сброс счетчиков и сохранение записи в журнал</p>
-            </div>
+        <div className="px-5 py-4 border-b border-zinc-900 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm sm:text-base font-semibold text-zinc-100">Внести обслуживание</h3>
+            <p className="text-[11px] text-zinc-500">Сброс счетчиков и сохранение записи в журнал</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -146,13 +141,13 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4">
           {/* Select Machine */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Техника из гаража
+            <label className="block text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+              Техника
             </label>
             <select
               value={selectedVehicleId}
               onChange={(e) => setSelectedVehicleId(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white font-medium text-sm focus:outline-none focus:border-amber-500"
+              className="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs font-medium focus:outline-none focus:border-zinc-700"
             >
               {vehicles.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -165,8 +160,8 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
           {/* Current Reading & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                {vehicle.primaryMetric === 'hours' ? 'Текущие моточасы (м/ч)' : 'Текущий пробег (км)'}
+              <label className="block text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+                {vehicle.primaryMetric === 'hours' ? 'Моточасы (м/ч)' : 'Пробег (км)'}
               </label>
               <div className="flex items-center gap-1.5">
                 <input
@@ -178,13 +173,13 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
                     if (vehicle.primaryMetric === 'hours') setCurrentHours(val);
                     else setCurrentKm(val);
                   }}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white font-bold text-sm focus:outline-none focus:border-amber-500"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-mono text-xs focus:outline-none focus:border-zinc-700"
                 />
                 {vehicle.primaryMetric === 'hours' ? (
                   <button
                     type="button"
                     onClick={() => setCurrentHours((prev) => Math.round((prev + 1) * 10) / 10)}
-                    className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs text-amber-400 font-bold"
+                    className="px-2.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-xs text-zinc-300 font-medium"
                     title="+1 час"
                   >
                     +1
@@ -193,7 +188,7 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
                   <button
                     type="button"
                     onClick={() => setCurrentKm((prev) => prev + 500)}
-                    className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-xs text-amber-400 font-bold"
+                    className="px-2.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-xs text-zinc-300 font-medium"
                     title="+500 км"
                   >
                     +500
@@ -203,32 +198,30 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Дата обслуживания
+              <label className="block text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+                Дата ТО
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={serviceDate}
-                  onChange={(e) => setServiceDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:border-amber-500"
-                />
-              </div>
+              <input
+                type="date"
+                value={serviceDate}
+                onChange={(e) => setServiceDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700"
+              />
             </div>
           </div>
 
           {/* Checklist of Tasks Done */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-slate-300">
-                Выполненные регламентные работы (сброс счетчика)
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] uppercase tracking-wider font-medium text-zinc-400">
+                Выполненные регламентные работы
               </label>
-              <span className="text-[11px] text-slate-400">
-                Выбрано: {selectedRuleIds.length + customItemsList.length}
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {selectedRuleIds.length + customItemsList.length} выбрано
               </span>
             </div>
 
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
               {vehicle.rules.map((rule) => {
                 const status = calculateRuleStatus(rule, vehicle);
                 const isSelected = selectedRuleIds.includes(rule.id);
@@ -238,27 +231,27 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
                     key={rule.id}
                     className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-amber-500/10 border-amber-500/50 text-white'
-                        : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800'
+                        ? 'bg-zinc-900 border-zinc-700 text-zinc-100'
+                        : 'bg-zinc-950 border-zinc-850 text-zinc-400 hover:border-zinc-800'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleRule(rule.id)}
-                      className="mt-0.5 rounded border-slate-600 text-amber-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer"
+                      className="mt-0.5 rounded border-zinc-700 text-zinc-100 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer accent-zinc-100"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold">{rule.name}</div>
-                      <div className="flex items-center gap-2 mt-0.5 text-[11px]">
+                      <div className="text-xs font-medium">{rule.name}</div>
+                      <div className="text-[10px] text-zinc-500 mt-0.5">
                         <span
-                          className={`font-medium ${
+                          className={
                             status.status === 'overdue'
                               ? 'text-rose-400'
                               : status.status === 'due_soon'
                               ? 'text-amber-400'
-                              : 'text-slate-400'
-                          }`}
+                              : 'text-zinc-500'
+                          }
                         >
                           {status.description}
                         </span>
@@ -272,13 +265,13 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
               {customItemsList.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-200"
                 >
                   <span className="font-medium">✓ {item}</span>
                   <button
                     type="button"
                     onClick={() => setCustomItemsList((prev) => prev.filter((_, i) => i !== idx))}
-                    className="text-slate-400 hover:text-rose-400"
+                    className="text-zinc-500 hover:text-rose-400"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -287,10 +280,10 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
             </div>
 
             {/* Add extra custom item */}
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex gap-1.5">
               <input
                 type="text"
-                placeholder="Другая работа (напр. замена тросика газа, ремонт пера)..."
+                placeholder="Другая работа (напр. замена тросика газа)..."
                 value={customItem}
                 onChange={(e) => setCustomItem(e.target.value)}
                 onKeyDown={(e) => {
@@ -299,14 +292,14 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
                     addCustomItem();
                   }
                 }}
-                className="flex-1 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-500"
+                className="flex-1 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700"
               />
               <button
                 type="button"
                 onClick={addCustomItem}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3 h-3" />
                 Добавить
               </button>
             </div>
@@ -315,15 +308,14 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
           {/* Parts Used with 1-Tap Autofill */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-300">
-                Запчасти, масла и расходники
+              <label className="text-[11px] uppercase tracking-wider font-medium text-zinc-400">
+                Запчасти и материалы
               </label>
               <button
                 type="button"
                 onClick={autofillFromSpecs}
-                className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+                className="text-[11px] text-zinc-300 hover:text-white font-medium underline underline-offset-2"
               >
-                <Sparkles className="w-3 h-3" />
                 Вставить из шпаргалки
               </button>
             </div>
@@ -331,36 +323,36 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
               rows={2}
               value={partsUsed}
               onChange={(e) => setPartsUsed(e.target.value)}
-              placeholder="напр. Motul 7100 15W-50 2.9л, фильтр HF160, шайба М24..."
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-500 resize-none"
+              placeholder="напр. Motul 7100 15W-50 2.9л, фильтр HF160..."
+              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700 resize-none font-mono"
             />
           </div>
 
           {/* Type of service and Cost */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Где делалось
+              <label className="block text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+                Исполнитель
               </label>
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-800 border border-slate-700 rounded-xl text-xs">
+              <div className="grid grid-cols-2 gap-1 p-0.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs">
                 <button
                   type="button"
                   onClick={() => setServiceType('diy')}
-                  className={`py-1.5 rounded-lg font-semibold transition-all ${
+                  className={`py-1.5 rounded-lg font-medium transition-all ${
                     serviceType === 'diy'
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  Гараж (сам)
+                  Сам
                 </button>
                 <button
                   type="button"
                   onClick={() => setServiceType('service')}
-                  className={`py-1.5 rounded-lg font-semibold transition-all ${
+                  className={`py-1.5 rounded-lg font-medium transition-all ${
                     serviceType === 'service'
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
                   Сервис
@@ -369,41 +361,41 @@ export function LogServiceModal({ initialVehicleId, onClose }: LogServiceModalPr
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Затраты (₽ / руб.)
+              <label className="block text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+                Затраты (₽)
               </label>
               <input
                 type="number"
                 placeholder="напр. 3500"
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 font-mono text-xs focus:outline-none focus:border-zinc-700"
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Заметки по осмотру техники
+            <label className="block text-[11px] uppercase tracking-wider font-medium text-zinc-400 mb-1.5">
+              Заметки
             </label>
             <input
               type="text"
-              placeholder="напр. Затянул динамометром, колодок осталось 50%, стружки на магните нет..."
+              placeholder="напр. Колодок осталось 50%, стружки на магните нет..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs focus:outline-none focus:border-zinc-700"
             />
           </div>
 
-          {/* Big Greasy-Hands Save Button */}
+          {/* Primary Save Button */}
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs shadow-sm active:scale-[0.99] transition-all flex items-center justify-center gap-2"
             >
-              <CheckCircle2 className="w-5 h-5 text-slate-950" />
-              Записать ТО и сбросить счетчики
+              <CheckCircle2 className="w-4 h-4 text-zinc-950" />
+              <span>Записать ТО и сбросить счетчики</span>
             </button>
           </div>
         </form>

@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { VehicleCategory } from '@/types/garage';
 
 interface CategoryFilterProps {
   selectedCategory: string;
@@ -15,12 +14,12 @@ const CATEGORIES: { id: string; label: string; icon: string }[] = [
   { id: 'enduro_pit', label: 'Эндуро / Питбайки', icon: '🏁' },
   { id: 'marine', label: 'Водная техника', icon: '🚤' },
   { id: 'car', label: 'Автомобили', icon: '🚗' },
-  { id: 'power_equipment', label: 'Садовая и силовая', icon: '🚜' },
+  { id: 'power_equipment', label: 'Садовая и спецтехника', icon: '🚜' },
 ];
 
 export function CategoryFilter({ selectedCategory, onSelectCategory, counts }: CategoryFilterProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none no-scrollbar py-1">
+    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none no-scrollbar">
       {CATEGORIES.map((cat) => {
         const count = counts[cat.id] ?? 0;
         const isActive = selectedCategory === cat.id;
@@ -30,17 +29,17 @@ export function CategoryFilter({ selectedCategory, onSelectCategory, counts }: C
             key={cat.id}
             type="button"
             onClick={() => onSelectCategory(cat.id)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border ${
               isActive
-                ? 'bg-amber-500 text-slate-950 border-amber-500 font-semibold shadow-sm shadow-amber-500/20'
-                : 'bg-slate-800/80 text-slate-300 border-slate-700/80 hover:bg-slate-800 hover:text-white'
+                ? 'bg-zinc-100 text-zinc-950 border-zinc-100 font-semibold shadow-sm'
+                : 'bg-zinc-900/60 text-zinc-400 border-zinc-800/80 hover:text-zinc-200 hover:border-zinc-700 hover:bg-zinc-900'
             }`}
           >
-            <span>{cat.icon}</span>
+            <span className="text-sm">{cat.icon}</span>
             <span>{cat.label}</span>
             <span
-              className={`ml-1 text-[11px] px-1.5 py-0.2 rounded-full font-bold ${
-                isActive ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-700 text-slate-400'
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-medium ${
+                isActive ? 'bg-zinc-300 text-zinc-950 font-semibold' : 'bg-zinc-800 text-zinc-500'
               }`}
             >
               {count}
