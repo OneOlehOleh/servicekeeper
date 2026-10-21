@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useGarage } from '@/context/GarageContext';
 import { Vehicle } from '@/types/garage';
 import { getVehicleUrgency } from '@/lib/calculations';
+import { LandingPage } from '@/components/LandingPage';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { VehicleCard } from '@/components/VehicleCard';
 import { LogServiceModal } from '@/components/LogServiceModal';
@@ -22,10 +23,12 @@ import {
   Plus,
   ShieldCheck,
   Search,
+  LogOut,
+  User,
 } from 'lucide-react';
 
-export default function GarageDashboard() {
-  const { vehicles, isHydrated } = useGarage();
+export default function Home() {
+  const { user, logout, vehicles, isHydrated } = useGarage();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +46,13 @@ export default function GarageDashboard() {
   const fleetStats = useMemo(() => {
     let overdueVehiclesCount = 0;
     let dueSoonVehiclesCount = 0;
-    const urgentItems: { vehicleName: string; ruleName: string; desc: string; status: 'overdue' | 'due_soon'; vehicle: Vehicle }[] = [];
+    const urgentItems: {
+      vehicleName: string;
+      ruleName: string;
+      desc: string;
+      status: 'overdue' | 'due_soon';
+      vehicle: Vehicle;
+    }[] = [];
 
     vehicles.forEach((v) => {
       const urgency = getVehicleUrgency(v);
@@ -103,6 +112,12 @@ export default function GarageDashboard() {
     );
   }
 
+  // If not logged in -> render Landing Page
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  // If logged in -> render the full Garage App
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-28">
       {/* Top Navigation */}
@@ -157,8 +172,23 @@ export default function GarageDashboard() {
               className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700"
             >
               <Plus className="w-4 h-4 text-amber-400" />
-              <span className="hidden sm:inline">Добавить технику</span>
+              <span className="hidden sm:inline">Добавить</span>
             </button>
+
+            {/* User Session & Logout */}
+            <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
+              <span className="text-[11px] px-2 py-1 rounded-lg bg-slate-800/80 text-slate-400 font-mono hidden md:inline">
+                {user.email}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition-colors border border-slate-700"
+                title="Выйти из аккаунта (на главную)"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>

@@ -4,7 +4,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Vehicle, ServiceRecord, QuickSpecs, MaintenanceRule } from '@/types/garage';
 import { INITIAL_VEHICLES, INITIAL_SERVICE_LOGS } from '@/data/initialFleet';
 
+export interface UserSession {
+  email: string;
+  isGuest?: boolean;
+}
+
 interface GarageContextType {
+  user: UserSession | null;
   vehicles: Vehicle[];
   serviceLogs: ServiceRecord[];
   isHydrated: boolean;
@@ -20,13 +26,18 @@ interface GarageContextType {
   resetAllData: () => void;
   exportDataJson: () => string;
   importDataJson: (json: string) => boolean;
+  login: (email: string) => void;
+  loginAsGuest: () => void;
+  logout: () => void;
 }
 
 const STORAGE_KEY = 'moto_ledger_data_v1';
+const USER_KEY = 'moto_ledger_user_v1';
 
 const GarageContext = createContext<GarageContextType | null>(null);
 
 export function GarageProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<UserSession | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>(INITIAL_VEHICLES);
   const [serviceLogs, setServiceLogs] = useState<ServiceRecord[]>(INITIAL_SERVICE_LOGS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
@@ -35,6 +46,11 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage on client mount
   useEffect(() => {
     try {
+      const storedUser = localStorage.getItem(USER_KEY);
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -52,7 +68,7 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save to localStorage when state changes
+  // Save data to localStorage when state changes
   useEffect(() => {
     if (!isHydrated) return;
     try {
@@ -61,6 +77,32 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to save garage data to localStorage', e);
     }
   }, [vehicles, serviceLogs, isHydrated]);
+
+  // Save user session
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      if (user) {
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(USER_KEY);
+      }
+    } catch (e) {
+      console.error('Failed to save user session', e);
+    }
+  }, [user, isHydrated]);
+
+  const login = (email: string) => {
+    setUser({ email, isGuest: false });
+  };
+
+  const loginAsGuest = () => {
+    setUser({ email: 'гость (офлайн)', isGuest: true });
+  };
+
+  const logout = () => {
+    setUser(null);
+  };
 
   const updateVehicleReading = (vehicleId: string, hours?: number, km?: number) => {
     const today = new Date().toISOString().split('T')[0];
@@ -199,6 +241,7 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   return (
     <GarageContext.Provider
       value={{
+        user,
         vehicles,
         serviceLogs,
         isHydrated,
@@ -214,6 +257,9 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         resetAllData,
         exportDataJson,
         importDataJson,
+        login,
+        loginAsGuest,
+        logout,
       }}
     >
       {children}
