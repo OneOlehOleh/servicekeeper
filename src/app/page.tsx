@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
-  const { user, logout, vehicles, isHydrated } = useGarage();
+  const { user, logout, vehicles, isHydrated, loadDemoFleet } = useGarage();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -288,11 +288,47 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Fleet Grid */}
-        {filteredVehicles.length === 0 ? (
+        {/* Fleet Grid / Empty State */}
+        {vehicles.length === 0 ? (
+          <div className="py-12 sm:py-16 px-4">
+            <div className="max-w-md mx-auto p-6 sm:p-8 rounded-2xl bg-zinc-900/40 border border-zinc-850 text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-zinc-300">
+                <Layers className="w-6 h-6 text-zinc-400" />
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-sm sm:text-base font-semibold text-zinc-100">
+                  Гараж пока пуст
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Добавьте вашу первую машину, мотоцикл, катер или садовую технику, чтобы вести учет наработки, регламенты ТО и шпаргалки расходников.
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddVehicleOpen(true)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Добавить технику</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={loadDemoFleet}
+                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-300 hover:text-zinc-100 font-medium text-xs transition-colors"
+                >
+                  Загрузить демо-парк
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : filteredVehicles.length === 0 ? (
           <div className="text-center py-20 text-zinc-600">
             <Wrench className="w-8 h-8 mx-auto mb-2 opacity-30" />
             <h3 className="text-xs font-medium text-zinc-400">Техника не найдена</h3>
+            <p className="text-[11px] text-zinc-500 mt-1">Попробуйте изменить категорию или поисковый запрос</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

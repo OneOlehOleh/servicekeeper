@@ -9,7 +9,7 @@ interface BackupModalProps {
 }
 
 export function BackupModal({ onClose }: BackupModalProps) {
-  const { exportDataJson, importDataJson, resetAllData } = useGarage();
+  const { exportDataJson, importDataJson, clearAllData, loadDemoFleet } = useGarage();
   const [jsonInput, setJsonInput] = useState('');
   const [copied, setCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
@@ -44,9 +44,16 @@ export function BackupModal({ onClose }: BackupModalProps) {
     }
   };
 
-  const handleReset = () => {
-    if (confirm('Сбросить все данные к исходному гаражу (BMW, Berkut, BRZ, Apollo)?')) {
-      resetAllData();
+  const handleClearAll = () => {
+    if (confirm('Вы уверены, что хотите удалить ВСЮ технику и сервисные записи из гаража? Это действие необратимо, если нет скачанной резервной копии.')) {
+      clearAllData();
+      onClose();
+    }
+  };
+
+  const handleLoadDemo = () => {
+    if (confirm('Загрузить демонстрационный парк техники (BMW F800, Berkut Parsun 40, BRZ 250, Apollo и др.)?')) {
+      loadDemoFleet();
       onClose();
     }
   };
@@ -133,14 +140,21 @@ export function BackupModal({ onClose }: BackupModalProps) {
             </button>
           </div>
 
-          {/* Reset */}
-          <div className="pt-1 flex justify-between items-center text-xs">
+          {/* Database management shortcuts */}
+          <div className="pt-2 border-t border-zinc-900 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs">
             <button
               type="button"
-              onClick={handleReset}
+              onClick={handleLoadDemo}
+              className="text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              Загрузить образцы техники (демо-парк)
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAll}
               className="text-zinc-500 hover:text-rose-400 transition-colors"
             >
-              Сбросить к исходным демо-данным
+              Очистить базу гаража
             </button>
           </div>
         </div>

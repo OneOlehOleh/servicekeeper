@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Vehicle, ServiceRecord, QuickSpecs, MaintenanceRule } from '@/types/garage';
-import { INITIAL_VEHICLES, INITIAL_SERVICE_LOGS } from '@/data/initialFleet';
+import { INITIAL_VEHICLES, INITIAL_SERVICE_LOGS, DEMO_VEHICLES, DEMO_SERVICE_LOGS } from '@/data/initialFleet';
 import { CommunityPreset, INITIAL_COMMUNITY_PRESETS } from '@/data/communityPresets';
 
 export type DesignConcept = 'garage_pro' | 'swiss_minimal' | 'cockpit';
@@ -31,6 +31,8 @@ interface GarageContextType {
   addRuleToVehicle: (vehicleId: string, rule: Omit<MaintenanceRule, 'id'>) => void;
   deleteRuleFromVehicle: (vehicleId: string, ruleId: string) => void;
   resetAllData: () => void;
+  clearAllData: () => void;
+  loadDemoFleet: () => void;
   exportDataJson: () => string;
   importDataJson: (json: string) => boolean;
   login: (email: string) => void;
@@ -271,12 +273,23 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const resetAllData = () => {
-    setVehicles(INITIAL_VEHICLES);
-    setServiceLogs(INITIAL_SERVICE_LOGS);
+  const clearAllData = () => {
+    setVehicles([]);
+    setServiceLogs([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    } catch (e) {
+      console.error('Failed to clear garage data', e);
+    }
+  };
+
+  const loadDemoFleet = () => {
+    setVehicles(DEMO_VEHICLES);
+    setServiceLogs(DEMO_SERVICE_LOGS);
+  };
+
+  const resetAllData = () => {
+    clearAllData();
   };
 
   const exportDataJson = () => {
@@ -352,6 +365,8 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         addRuleToVehicle,
         deleteRuleFromVehicle,
         resetAllData,
+        clearAllData,
+        loadDemoFleet,
         exportDataJson,
         importDataJson,
         login,

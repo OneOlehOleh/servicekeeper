@@ -1,6 +1,11 @@
 import { Vehicle, ServiceRecord } from '@/types/garage';
 
-export const INITIAL_VEHICLES: Vehicle[] = [
+// Чистая база техники для свежих установок и новых устройств
+export const INITIAL_VEHICLES: Vehicle[] = [];
+export const INITIAL_SERVICE_LOGS: ServiceRecord[] = [];
+
+// Демонстрационный гараж (образцы техники для ознакомления и тестирования)
+export const DEMO_VEHICLES: Vehicle[] = [
   {
     id: 'bmw-f800gs',
     name: 'BMW F800GS',
@@ -338,7 +343,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
   },
 ];
 
-export const INITIAL_SERVICE_LOGS: ServiceRecord[] = [
+export const DEMO_SERVICE_LOGS: ServiceRecord[] = [
   {
     id: 'log-1',
     vehicleId: 'bmw-f800gs',

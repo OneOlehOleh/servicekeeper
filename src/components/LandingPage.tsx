@@ -81,7 +81,7 @@ export function LandingPage() {
             onClick={loginAsGuest}
             className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs sm:text-sm shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2"
           >
-            <span>Открыть демо-гараж</span>
+            <span>Начать пользоваться</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
           <button
