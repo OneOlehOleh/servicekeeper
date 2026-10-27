@@ -107,15 +107,16 @@ export async function POST(req: NextRequest) {
 
         const prompt = `Модель техники: "${sanitizedModelName}". Категория: "${category || 'auto'}". Верни JSON спецификаций.`;
 
-        // Ключ передается через заголовок 'x-goog-api-key' (не в URL query string, чтобы не светиться в логах)
+        // Используем быструю и доступную модель gemini-3.5-flash-lite с таймаутом 12 сек
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(apiKey)}`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'x-goog-api-key': apiKey,
             },
+            signal: AbortSignal.timeout(12000),
             body: JSON.stringify({
               contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
               generationConfig: {
@@ -133,9 +134,10 @@ export async function POST(req: NextRequest) {
         }
 
         const data = await response.json();
-        const rawJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        let rawJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (rawJsonText) {
+          rawJsonText = rawJsonText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
           const parsed = JSON.parse(rawJsonText);
           return NextResponse.json({
             configured: true,
