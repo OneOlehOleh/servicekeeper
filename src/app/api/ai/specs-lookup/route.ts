@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
 
         // Ключ передается через заголовок 'x-goog-api-key' (не в URL query string, чтобы не светиться в логах)
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`,
           {
             method: 'POST',
             headers: {
