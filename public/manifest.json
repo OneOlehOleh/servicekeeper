@@ -1,6 +1,6 @@
 {
-  "name": "МотоЖурнал — Сервисный учет гаража",
-  "short_name": "МотоЖурнал",
+  "name": "ServiceKeeper — Сервисный журнал техники",
+  "short_name": "ServiceKeeper",
   "description": "Сервисный учет моточасов и регламентов ТО для мотоциклов, катеров, эндуро и техники",
   "start_url": "/",
   "display": "standalone",

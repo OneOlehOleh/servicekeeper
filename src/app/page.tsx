@@ -139,7 +139,7 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-sm font-semibold tracking-tight text-zinc-100 leading-tight">
-                МотоЖурнал
+                ServiceKeeper
               </h1>
               <p className="text-[10px] text-zinc-500 font-medium">
                 Сервисный учет

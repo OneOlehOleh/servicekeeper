@@ -3,12 +3,12 @@ import './globals.css';
 import { GarageProvider } from '@/context/GarageContext';
 
 export const metadata: Metadata = {
-  title: 'МотоЖурнал — Сервисный учет гаража',
+  title: 'ServiceKeeper — Сервисный журнал техники',
   description: 'Офлайн-журнал ТО моточасов и пробега: мотоциклы, лодочные моторы, питбайки, авто и техника',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'МотоЖурнал',
+    title: 'ServiceKeeper',
   },
 };
 

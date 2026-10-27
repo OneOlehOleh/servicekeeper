@@ -29,7 +29,7 @@ export function LandingPage() {
               <Layers className="w-3.5 h-3.5" />
             </div>
             <span className="text-sm font-semibold tracking-tight text-zinc-100">
-              МотоЖурнал
+              ServiceKeeper
             </span>
           </div>
 
@@ -237,7 +237,7 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-zinc-900 py-8 px-4 text-center text-xs text-zinc-600">
-        <div>МотоЖурнал — сервис ведения регламентов техники</div>
+        <div>ServiceKeeper — сервис ведения регламентов техники</div>
       </footer>
 
       {/* Auth Modal */}
