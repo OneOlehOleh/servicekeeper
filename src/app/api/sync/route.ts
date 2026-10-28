@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs';
 import path from 'node:path';
-import { put, list } from '@vercel/blob';
+import { put, list, get } from '@vercel/blob';
 
 // -----------------------------------------------------------------------------
 // Серверный API синхронизации автопарка между устройствами
 // -----------------------------------------------------------------------------
 // Поддерживает:
-// 1. Vercel Blob (BLOB_READ_WRITE_TOKEN или *BLOB*_READ_WRITE_TOKEN)
+// 1. Vercel Blob (Private & Public Blob Stores, BLOB_READ_WRITE_TOKEN)
 // 2. Vercel KV / Upstash Redis (KV_REST_API_URL & KV_REST_API_TOKEN)
 // 3. Локальный dev-файл (.dev-sync-storage.json)
 // -----------------------------------------------------------------------------
@@ -58,6 +58,96 @@ function getBlobToken(): string | undefined {
     }
   }
   return undefined;
+}
+
+// Чтение из Vercel Blob с поддержкой Private и Public хранилищ
+async function readBlobPayload(blobPath: string, token: string): Promise<SyncPayload | null> {
+  // 1. Основной путь: get() с private доступом (современные Blob хранилища приватны по умолчанию)
+  try {
+    const res = await get(blobPath, {
+      access: 'private',
+      token,
+      useCache: false,
+    });
+    if (res && res.stream) {
+      const text = await new Response(res.stream).text();
+      return JSON.parse(text);
+    }
+    if (res === null) {
+      return null;
+    }
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (!msg.includes('404')) {
+      console.warn('Private blob get attempt:', msg);
+    }
+  }
+
+  // 2. Фоллбек: get() с public доступом (если хранилище создано как public)
+  try {
+    const res = await get(blobPath, {
+      access: 'public',
+      token,
+      useCache: false,
+    });
+    if (res && res.stream) {
+      const text = await new Response(res.stream).text();
+      return JSON.parse(text);
+    }
+    if (res === null) {
+      return null;
+    }
+  } catch {
+    // игнорируем ошибку public фоллбека
+  }
+
+  // 3. Дополнительный фоллбек через list() с авторизацией Bearer
+  try {
+    const { blobs } = await list({ prefix: blobPath, limit: 1, token });
+    if (blobs && blobs.length > 0) {
+      const downloadUrl = blobs[0].downloadUrl || blobs[0].url;
+      const res = await fetch(downloadUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    }
+  } catch (err: any) {
+    console.warn('Blob list fallback failed:', err?.message);
+  }
+
+  return null;
+}
+
+// Запись в Vercel Blob с поддержкой Private и Public хранилищ
+async function writeBlobPayload(blobPath: string, payload: SyncPayload, token: string) {
+  const content = JSON.stringify(payload);
+
+  // 1. Попытка сохранения с private доступом (современный Vercel Blob)
+  try {
+    return await put(blobPath, content, {
+      access: 'private',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'application/json',
+      token,
+    });
+  } catch (err: any) {
+    const msg = err?.message || '';
+    // Если хранилище настроено как public, переключаемся на public
+    if (msg.includes('public') || msg.includes('Cannot use private access on a public store')) {
+      return await put(blobPath, content, {
+        access: 'public',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: 'application/json',
+        token,
+      });
+    }
+    throw err;
+  }
 }
 
 // Автоматический поиск KV / Redis REST
@@ -115,19 +205,15 @@ export async function GET(req: NextRequest) {
     if (blobToken) {
       try {
         const blobPath = `fleets/${encodeURIComponent(email)}.json`;
-        const { blobs } = await list({ prefix: blobPath, limit: 1, token: blobToken });
+        const blobData = await readBlobPayload(blobPath, blobToken);
 
-        if (blobs && blobs.length > 0) {
-          const blobRes = await fetch(blobs[0].url, { cache: 'no-store' });
-          if (blobRes.ok) {
-            const data = await blobRes.json();
-            return NextResponse.json({
-              configured: true,
-              storageType: 'vercel_blob',
-              found: true,
-              data,
-            });
-          }
+        if (blobData) {
+          return NextResponse.json({
+            configured: true,
+            storageType: 'vercel_blob',
+            found: true,
+            data: blobData,
+          });
         }
 
         return NextResponse.json({
@@ -142,8 +228,6 @@ export async function GET(req: NextRequest) {
           configured: true,
           storageType: 'vercel_blob',
           error: err?.message || String(err),
-          tokenLength: blobToken.length,
-          tokenPreview: blobToken.slice(0, 18) + '...' + blobToken.slice(-4),
         }, { status: 500 });
       }
     }
@@ -248,12 +332,7 @@ export async function POST(req: NextRequest) {
     if (blobToken) {
       try {
         const blobPath = `fleets/${encodeURIComponent(cleanEmail)}.json`;
-        await put(blobPath, JSON.stringify(payload), {
-          access: 'public',
-          addRandomSuffix: false,
-          contentType: 'application/json',
-          token: blobToken,
-        });
+        await writeBlobPayload(blobPath, payload, blobToken);
 
         return NextResponse.json({
           configured: true,
@@ -268,8 +347,6 @@ export async function POST(req: NextRequest) {
           success: false,
           storageType: 'vercel_blob',
           error: err?.message || String(err),
-          tokenLength: blobToken.length,
-          tokenPreview: blobToken.slice(0, 18) + '...' + blobToken.slice(-4),
         }, { status: 500 });
       }
     }

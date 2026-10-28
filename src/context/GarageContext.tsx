@@ -68,53 +68,18 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const isSyncingRef = useRef(false);
+  const initialSyncDoneRef = useRef(false);
+  const skipNextPushRef = useRef(false);
+  const vehiclesRef = useRef(vehicles);
+  const serviceLogsRef = useRef(serviceLogs);
 
-  // Получение актуального состояния гаража из облака
-  const pullFromCloud = useCallback(async (email: string) => {
-    if (!email || email.includes('гость')) return;
-    if (isSyncingRef.current) return;
-    isSyncingRef.current = true;
-    setSyncStatus('syncing');
+  useEffect(() => {
+    vehiclesRef.current = vehicles;
+  }, [vehicles]);
 
-    try {
-      const res = await fetch(`/api/sync?email=${encodeURIComponent(email)}`, {
-        cache: 'no-store',
-      });
-      const result = await res.json();
-
-      if (!result.configured) {
-        setSyncStatus('unconfigured');
-        setSyncMessage('Облачное хранилище не подключено на Vercel (KV)');
-        return;
-      }
-
-      if (result.found && result.data) {
-        const cloudVehicles = Array.isArray(result.data.vehicles) ? result.data.vehicles : [];
-        const cloudLogs = Array.isArray(result.data.serviceLogs) ? result.data.serviceLogs : [];
-
-        setVehicles(cloudVehicles);
-        setServiceLogs(cloudLogs);
-
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ vehicles: cloudVehicles, serviceLogs: cloudLogs }));
-        } catch {}
-
-        setSyncStatus('synced');
-        setLastSyncedAt(new Date(result.data.updatedAt || Date.now()));
-        setSyncMessage(null);
-      } else {
-        // В облаке ещё нет данных для этого email
-        setSyncStatus('synced');
-        setSyncMessage(null);
-      }
-    } catch (err) {
-      console.error('Failed to pull from cloud:', err);
-      setSyncStatus('offline');
-      setSyncMessage('Офлайн режим (синхронизация при появлении сети)');
-    } finally {
-      isSyncingRef.current = false;
-    }
-  }, []);
+  useEffect(() => {
+    serviceLogsRef.current = serviceLogs;
+  }, [serviceLogs]);
 
   // Сохранение изменений в облако
   const pushToCloud = useCallback(async (email: string, currentVehicles: Vehicle[], currentLogs: ServiceRecord[]) => {
@@ -138,7 +103,14 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
 
       if (!result.configured) {
         setSyncStatus('unconfigured');
-        setSyncMessage('Облачное хранилище не подключено на Vercel (KV)');
+        setSyncMessage('Облачное хранилище не подключено на Vercel (Blob/KV)');
+        return;
+      }
+
+      if (!res.ok || !result.success) {
+        console.error('Failed to push to cloud:', result.error);
+        setSyncStatus('error');
+        setSyncMessage(result.error || 'Ошибка сохранения в облако');
         return;
       }
 
@@ -146,6 +118,7 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         // Конфликт: в облаке есть более свежие изменения с другого устройства
         const cloudVehicles = result.cloudData.vehicles || [];
         const cloudLogs = result.cloudData.serviceLogs || [];
+        skipNextPushRef.current = true;
         setVehicles(cloudVehicles);
         setServiceLogs(cloudLogs);
         try {
@@ -164,6 +137,70 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
       isSyncingRef.current = false;
     }
   }, []);
+
+  // Получение актуального состояния гаража из облака
+  const pullFromCloud = useCallback(async (email: string) => {
+    if (!email || email.includes('гость')) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setSyncStatus('syncing');
+
+    try {
+      const res = await fetch(`/api/sync?email=${encodeURIComponent(email)}`, {
+        cache: 'no-store',
+      });
+      const result = await res.json();
+
+      if (!result.configured) {
+        setSyncStatus('unconfigured');
+        setSyncMessage('Облачное хранилище не подключено на Vercel (Blob/KV)');
+        return;
+      }
+
+      if (!res.ok) {
+        console.error('Cloud pull failed:', result.error);
+        setSyncStatus('error');
+        setSyncMessage(result.error || 'Ошибка чтения из облака');
+        return;
+      }
+
+      if (result.found && result.data) {
+        const cloudVehicles = Array.isArray(result.data.vehicles) ? result.data.vehicles : [];
+        const cloudLogs = Array.isArray(result.data.serviceLogs) ? result.data.serviceLogs : [];
+
+        skipNextPushRef.current = true;
+        setVehicles(cloudVehicles);
+        setServiceLogs(cloudLogs);
+
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ vehicles: cloudVehicles, serviceLogs: cloudLogs }));
+        } catch {}
+
+        setSyncStatus('synced');
+        setLastSyncedAt(new Date(result.data.updatedAt || Date.now()));
+        setSyncMessage(null);
+      } else {
+        // В облаке ещё нет данных для этого email
+        setSyncStatus('synced');
+        setSyncMessage(null);
+        // Если на этом устройстве уже есть техника, инициализируем облако
+        const currentV = vehiclesRef.current;
+        const currentL = serviceLogsRef.current;
+        if (currentV.length > 0) {
+          isSyncingRef.current = false;
+          await pushToCloud(email, currentV, currentL);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to pull from cloud:', err);
+      setSyncStatus('offline');
+      setSyncMessage('Офлайн режим (синхронизация при появлении сети)');
+    } finally {
+      isSyncingRef.current = false;
+      initialSyncDoneRef.current = true;
+    }
+  }, [pushToCloud]);
 
   const syncNow = async () => {
     if (!user || user.isGuest) return;
@@ -281,15 +318,22 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   // 3. Отложенный Push в облако при изменении техники или записей ТО
   useEffect(() => {
     if (!isHydrated || !user || user.isGuest) return;
+    if (!initialSyncDoneRef.current) return;
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false;
+      return;
+    }
+
     const timer = setTimeout(() => {
       pushToCloud(user.email, vehicles, serviceLogs);
-    }, 1000);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [vehicles, serviceLogs, isHydrated, user?.email, user?.isGuest, pushToCloud]);
 
   const login = async (email: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const newUser = { email: cleanEmail, isGuest: false };
+    initialSyncDoneRef.current = false;
     setUser(newUser);
     await pullFromCloud(cleanEmail);
   };
@@ -301,6 +345,7 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    initialSyncDoneRef.current = false;
     setSyncStatus('idle');
     setSyncMessage(null);
   };

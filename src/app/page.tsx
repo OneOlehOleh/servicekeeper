@@ -25,6 +25,7 @@ import {
   CloudOff,
   Loader2,
   WifiOff,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function Home() {
@@ -229,6 +230,17 @@ export default function Home() {
                       <WifiOff className="w-3 h-3" />
                       <span className="hidden md:inline">Офлайн</span>
                     </span>
+                  )}
+                  {syncStatus === 'error' && (
+                    <button
+                      type="button"
+                      onClick={() => syncNow()}
+                      title="Ошибка синхронизации. Нажмите для повтора."
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-rose-950/40 border border-rose-900/50 text-[10px] text-rose-400 font-medium hover:bg-rose-900/30 transition-colors"
+                    >
+                      <AlertTriangle className="w-3 h-3" />
+                      <span className="hidden md:inline">Ошибка</span>
+                    </button>
                   )}
                 </>
               )}

@@ -142,6 +142,25 @@ export function BackupModal({ onClose }: BackupModalProps) {
                   </div>
                 </div>
               </div>
+            ) : syncStatus === 'error' ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-950/30 border border-rose-900/40 text-rose-300 text-xs leading-relaxed">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-rose-200">Ошибка синхронизации</span>
+                    <p className="mt-0.5 text-rose-300/80">Сервер сообщил об ошибке или токен не валиден. Попробуйте повторить.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={isManualSyncing}
+                  className="py-1.5 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isManualSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isManualSyncing ? 'Обновление...' : 'Повторить попытку'}</span>
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-between text-xs text-zinc-400">
                 <span>Статус: {syncStatus === 'syncing' ? 'Синхронизация...' : 'Офлайн режим'}</span>
