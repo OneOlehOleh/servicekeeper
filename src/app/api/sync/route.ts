@@ -188,7 +188,9 @@ export async function GET(req: NextRequest) {
         k.includes('KV') ||
         k.includes('REDIS') ||
         k.includes('UPSTASH') ||
-        k.includes('STORAGE')
+        k.includes('STORAGE') ||
+        k.includes('TOKEN') ||
+        k.includes('SERVICEKEEPER')
     );
 
     return NextResponse.json({
