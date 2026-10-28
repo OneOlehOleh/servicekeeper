@@ -7,9 +7,9 @@ import { put, list } from '@vercel/blob';
 // Серверный API синхронизации автопарка между устройствами
 // -----------------------------------------------------------------------------
 // Поддерживает:
-// 1. Vercel KV / Upstash Redis (через KV_REST_API_URL / UPSTASH_REDIS_REST_URL)
-// 2. Vercel Blob (через BLOB_READ_WRITE_TOKEN)
-// 3. Локальный dev-файл (.dev-sync-storage.json) при локальной разработке
+// 1. Vercel Blob (BLOB_READ_WRITE_TOKEN или *BLOB*_READ_WRITE_TOKEN)
+// 2. Vercel KV / Upstash Redis (KV_REST_API_URL & KV_REST_API_TOKEN)
+// 3. Локальный dev-файл (.dev-sync-storage.json)
 // -----------------------------------------------------------------------------
 
 interface SyncPayload {
@@ -41,17 +41,49 @@ function writeDevStorage(data: Record<string, SyncPayload>) {
   }
 }
 
-// Запрос к Upstash / Vercel KV
+// Автоматический поиск токена Vercel Blob
+function getBlobToken(): string | undefined {
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    return process.env.BLOB_READ_WRITE_TOKEN;
+  }
+  // Поиск префиксных токенов (например SERVICEKEEPER_BLOB_READ_WRITE_TOKEN)
+  for (const [key, val] of Object.entries(process.env)) {
+    if (key.includes('BLOB') && typeof val === 'string' && val.startsWith('vercel_blob_rw_')) {
+      return val;
+    }
+  }
+  for (const [key, val] of Object.entries(process.env)) {
+    if (key.includes('BLOB') && key.includes('TOKEN') && typeof val === 'string' && val.length > 10) {
+      return val;
+    }
+  }
+  return undefined;
+}
+
+// Автоматический поиск KV / Redis REST
+function getKvConfig(): { url: string; token: string } | null {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) return { url, token };
+
+  for (const [key, val] of Object.entries(process.env)) {
+    if ((key.includes('KV') || key.includes('REDIS')) && key.endsWith('REST_API_URL') && typeof val === 'string') {
+      const tokenKey = key.replace('REST_API_URL', 'REST_API_TOKEN');
+      const foundToken = process.env[tokenKey];
+      if (foundToken) return { url: val, token: foundToken };
+    }
+  }
+  return null;
+}
+
 async function executeKvCommand(command: any[]): Promise<any> {
-  const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  const kv = getKvConfig();
+  if (!kv) return null;
 
-  if (!kvUrl || !kvToken) return null;
-
-  const res = await fetch(kvUrl, {
+  const res = await fetch(kv.url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${kvToken}`,
+      Authorization: `Bearer ${kv.token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(command),
@@ -76,41 +108,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Некорректный email' }, { status: 400 });
     }
 
-    const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const hasBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+    const blobToken = getBlobToken();
+    const kv = getKvConfig();
 
-    // 1. Попытка через Vercel KV / Upstash Redis
-    if (kvUrl) {
-      try {
-        const key = `user:fleet:${email}`;
-        const rawResult = await executeKvCommand(['GET', key]);
-
-        if (rawResult) {
-          const parsed = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
-          return NextResponse.json({
-            configured: true,
-            storageType: 'vercel_kv',
-            found: true,
-            data: parsed,
-          });
-        }
-
-        return NextResponse.json({
-          configured: true,
-          storageType: 'vercel_kv',
-          found: false,
-          data: null,
-        });
-      } catch (err: any) {
-        console.error('Failed to read from KV:', err);
-      }
-    }
-
-    // 2. Попытка через Vercel Blob
-    if (hasBlob) {
+    // 1. Попытка через Vercel Blob (приоритет)
+    if (blobToken) {
       try {
         const blobPath = `fleets/${encodeURIComponent(email)}.json`;
-        const { blobs } = await list({ prefix: blobPath, limit: 1 });
+        const { blobs } = await list({ prefix: blobPath, limit: 1, token: blobToken });
 
         if (blobs && blobs.length > 0) {
           const blobRes = await fetch(blobs[0].url, { cache: 'no-store' });
@@ -136,6 +141,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 2. Попытка через Vercel KV / Upstash Redis
+    if (kv) {
+      try {
+        const key = `user:fleet:${email}`;
+        const rawResult = await executeKvCommand(['GET', key]);
+
+        if (rawResult) {
+          const parsed = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+          return NextResponse.json({
+            configured: true,
+            storageType: 'vercel_kv',
+            found: true,
+            data: parsed,
+          });
+        }
+
+        return NextResponse.json({
+          configured: true,
+          storageType: 'vercel_kv',
+          found: false,
+          data: null,
+        });
+      } catch (err: any) {
+        console.error('Failed to read from KV:', err);
+      }
+    }
+
     // 3. Локальный dev-режим
     if (process.env.NODE_ENV !== 'production') {
       const devStorage = readDevStorage();
@@ -149,11 +181,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 4. Продакшн без подключенной базы
+    // 4. Продакшн без хранилища
+    const matchingEnvKeys = Object.keys(process.env).filter(
+      (k) =>
+        k.includes('BLOB') ||
+        k.includes('KV') ||
+        k.includes('REDIS') ||
+        k.includes('UPSTASH') ||
+        k.includes('STORAGE')
+    );
+
     return NextResponse.json({
       configured: false,
       storageType: 'none',
       found: false,
+      matchingEnvKeys,
       message: 'Облачное хранилище (Blob или KV) еще не подключено в панели Vercel.',
       data: null,
     });
@@ -190,11 +232,33 @@ export async function POST(req: NextRequest) {
       updatedAt: typeof updatedAt === 'number' ? updatedAt : Date.now(),
     };
 
-    const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const hasBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+    const blobToken = getBlobToken();
+    const kv = getKvConfig();
 
-    // 1. Сохранение в Vercel KV / Upstash Redis
-    if (kvUrl) {
+    // 1. Сохранение в Vercel Blob
+    if (blobToken) {
+      try {
+        const blobPath = `fleets/${encodeURIComponent(cleanEmail)}.json`;
+        await put(blobPath, JSON.stringify(payload), {
+          access: 'public',
+          addRandomSuffix: false,
+          contentType: 'application/json',
+          token: blobToken,
+        });
+
+        return NextResponse.json({
+          configured: true,
+          success: true,
+          storageType: 'vercel_blob',
+          savedAt: payload.updatedAt,
+        });
+      } catch (err: any) {
+        console.error('Failed to write to Vercel Blob:', err);
+      }
+    }
+
+    // 2. Сохранение в Vercel KV / Upstash Redis
+    if (kv) {
       try {
         const key = `user:fleet:${cleanEmail}`;
         const existingRaw = await executeKvCommand(['GET', key]);
@@ -220,27 +284,6 @@ export async function POST(req: NextRequest) {
         });
       } catch (err: any) {
         console.error('Failed to write to KV:', err);
-      }
-    }
-
-    // 2. Сохранение в Vercel Blob
-    if (hasBlob) {
-      try {
-        const blobPath = `fleets/${encodeURIComponent(cleanEmail)}.json`;
-        await put(blobPath, JSON.stringify(payload), {
-          access: 'public',
-          addRandomSuffix: false,
-          contentType: 'application/json',
-        });
-
-        return NextResponse.json({
-          configured: true,
-          success: true,
-          storageType: 'vercel_blob',
-          savedAt: payload.updatedAt,
-        });
-      } catch (err: any) {
-        console.error('Failed to write to Vercel Blob:', err);
       }
     }
 
