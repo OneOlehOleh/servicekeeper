@@ -138,6 +138,13 @@ export async function GET(req: NextRequest) {
         });
       } catch (err: any) {
         console.error('Failed to read from Vercel Blob:', err);
+        return NextResponse.json({
+          configured: true,
+          storageType: 'vercel_blob',
+          error: err?.message || String(err),
+          tokenLength: blobToken.length,
+          tokenPreview: blobToken.slice(0, 18) + '...' + blobToken.slice(-4),
+        }, { status: 500 });
       }
     }
 
@@ -256,6 +263,14 @@ export async function POST(req: NextRequest) {
         });
       } catch (err: any) {
         console.error('Failed to write to Vercel Blob:', err);
+        return NextResponse.json({
+          configured: true,
+          success: false,
+          storageType: 'vercel_blob',
+          error: err?.message || String(err),
+          tokenLength: blobToken.length,
+          tokenPreview: blobToken.slice(0, 18) + '...' + blobToken.slice(-4),
+        }, { status: 500 });
       }
     }
 
