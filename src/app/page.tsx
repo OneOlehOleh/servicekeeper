@@ -21,10 +21,14 @@ import {
   Search,
   LogOut,
   Layers,
+  Cloud,
+  CloudOff,
+  Loader2,
+  WifiOff,
 } from 'lucide-react';
 
 export default function Home() {
-  const { user, logout, vehicles, isHydrated, loadDemoFleet } = useGarage();
+  const { user, logout, vehicles, isHydrated, loadDemoFleet, syncStatus, syncNow } = useGarage();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -181,9 +185,55 @@ export default function Home() {
               <span className="hidden sm:inline">Добавить технику</span>
             </button>
 
-            {/* User Session & Logout */}
-            <div className="flex items-center gap-1 pl-1 border-l border-zinc-900">
-              <span className="text-[10px] px-2 py-1 rounded bg-zinc-900 text-zinc-500 font-mono hidden md:inline">
+            {/* User Session, Cloud Sync & Logout */}
+            <div className="flex items-center gap-1.5 pl-1.5 border-l border-zinc-900">
+              {/* Cloud Sync Status Indicator */}
+              {!user.isGuest && (
+                <>
+                  {syncStatus === 'synced' && (
+                    <button
+                      type="button"
+                      onClick={() => syncNow()}
+                      title="Гараж синхронизирован с облаком. Нажмите для обновления."
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-950/40 border border-emerald-900/50 text-[10px] text-emerald-400 font-medium hover:bg-emerald-900/30 transition-colors"
+                    >
+                      <Cloud className="w-3 h-3" />
+                      <span className="hidden md:inline">Синхронизировано</span>
+                    </button>
+                  )}
+                  {syncStatus === 'syncing' && (
+                    <span
+                      title="Идет обмен данными с сервером..."
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-950/40 border border-amber-900/50 text-[10px] text-amber-400 font-medium"
+                    >
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span className="hidden md:inline">Синхронизация...</span>
+                    </span>
+                  )}
+                  {syncStatus === 'unconfigured' && (
+                    <button
+                      type="button"
+                      onClick={() => setIsBackupOpen(true)}
+                      title="Подключите Vercel KV в панели Vercel для авто-синхронизации между устройствами."
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-900/80 border border-zinc-800 text-[10px] text-zinc-400 hover:text-amber-400 transition-colors"
+                    >
+                      <CloudOff className="w-3 h-3 text-amber-500/80" />
+                      <span className="hidden md:inline">Только локально</span>
+                    </button>
+                  )}
+                  {syncStatus === 'offline' && (
+                    <span
+                      title="Нет соединения с сетью. Данные сохранены на этом устройстве."
+                      className="flex items-center gap-1 px-2 py-1 rounded-md bg-zinc-900/80 border border-zinc-800 text-[10px] text-zinc-500 font-medium"
+                    >
+                      <WifiOff className="w-3 h-3" />
+                      <span className="hidden md:inline">Офлайн</span>
+                    </span>
+                  )}
+                </>
+              )}
+
+              <span className="text-[10px] px-2 py-1 rounded bg-zinc-900 text-zinc-500 font-mono hidden md:inline truncate max-w-[140px]">
                 {user.email}
               </span>
               <button

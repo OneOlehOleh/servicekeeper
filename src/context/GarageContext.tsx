@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Vehicle, ServiceRecord, QuickSpecs, MaintenanceRule } from '@/types/garage';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { Vehicle, ServiceRecord, QuickSpecs, MaintenanceRule, SyncStatus } from '@/types/garage';
 import { INITIAL_VEHICLES, INITIAL_SERVICE_LOGS, DEMO_VEHICLES, DEMO_SERVICE_LOGS } from '@/data/initialFleet';
 import { CommunityPreset, INITIAL_COMMUNITY_PRESETS } from '@/data/communityPresets';
 
@@ -41,6 +41,10 @@ interface GarageContextType {
   communityPresets: CommunityPreset[];
   shareToCommunity: (vehicleId: string, authorName: string) => boolean;
   upvoteCommunityPreset: (presetId: string) => void;
+  syncStatus: SyncStatus;
+  syncMessage: string | null;
+  lastSyncedAt: Date | null;
+  syncNow: () => Promise<void>;
 }
 
 const STORAGE_KEY = 'moto_ledger_data_v1';
@@ -58,6 +62,113 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
   const [communityPresets, setCommunityPresets] = useState<CommunityPreset[]>(INITIAL_COMMUNITY_PRESETS);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Облачная синхронизация между устройствами
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const isSyncingRef = useRef(false);
+
+  // Получение актуального состояния гаража из облака
+  const pullFromCloud = useCallback(async (email: string) => {
+    if (!email || email.includes('гость')) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setSyncStatus('syncing');
+
+    try {
+      const res = await fetch(`/api/sync?email=${encodeURIComponent(email)}`, {
+        cache: 'no-store',
+      });
+      const result = await res.json();
+
+      if (!result.configured) {
+        setSyncStatus('unconfigured');
+        setSyncMessage('Облачное хранилище не подключено на Vercel (KV)');
+        return;
+      }
+
+      if (result.found && result.data) {
+        const cloudVehicles = Array.isArray(result.data.vehicles) ? result.data.vehicles : [];
+        const cloudLogs = Array.isArray(result.data.serviceLogs) ? result.data.serviceLogs : [];
+
+        setVehicles(cloudVehicles);
+        setServiceLogs(cloudLogs);
+
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ vehicles: cloudVehicles, serviceLogs: cloudLogs }));
+        } catch {}
+
+        setSyncStatus('synced');
+        setLastSyncedAt(new Date(result.data.updatedAt || Date.now()));
+        setSyncMessage(null);
+      } else {
+        // В облаке ещё нет данных для этого email
+        setSyncStatus('synced');
+        setSyncMessage(null);
+      }
+    } catch (err) {
+      console.error('Failed to pull from cloud:', err);
+      setSyncStatus('offline');
+      setSyncMessage('Офлайн режим (синхронизация при появлении сети)');
+    } finally {
+      isSyncingRef.current = false;
+    }
+  }, []);
+
+  // Сохранение изменений в облако
+  const pushToCloud = useCallback(async (email: string, currentVehicles: Vehicle[], currentLogs: ServiceRecord[]) => {
+    if (!email || email.includes('гость')) return;
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    setSyncStatus('syncing');
+
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          vehicles: currentVehicles,
+          serviceLogs: currentLogs,
+          updatedAt: Date.now(),
+        }),
+      });
+      const result = await res.json();
+
+      if (!result.configured) {
+        setSyncStatus('unconfigured');
+        setSyncMessage('Облачное хранилище не подключено на Vercel (KV)');
+        return;
+      }
+
+      if (result.conflict && result.cloudData) {
+        // Конфликт: в облаке есть более свежие изменения с другого устройства
+        const cloudVehicles = result.cloudData.vehicles || [];
+        const cloudLogs = result.cloudData.serviceLogs || [];
+        setVehicles(cloudVehicles);
+        setServiceLogs(cloudLogs);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ vehicles: cloudVehicles, serviceLogs: cloudLogs }));
+        } catch {}
+      }
+
+      setSyncStatus('synced');
+      setLastSyncedAt(new Date());
+      setSyncMessage(null);
+    } catch (err) {
+      console.error('Failed to push to cloud:', err);
+      setSyncStatus('offline');
+      setSyncMessage('Офлайн: изменения сохранены на устройстве');
+    } finally {
+      isSyncingRef.current = false;
+    }
+  }, []);
+
+  const syncNow = async () => {
+    if (!user || user.isGuest) return;
+    await pullFromCloud(user.email);
+  };
 
   // Load from localStorage on client mount
   useEffect(() => {
@@ -139,16 +250,59 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, isHydrated]);
 
-  const login = (email: string) => {
-    setUser({ email, isGuest: false });
+  // 1. Автоматический Pull при монтировании сессии
+  useEffect(() => {
+    if (!isHydrated || !user || user.isGuest) return;
+    pullFromCloud(user.email);
+  }, [isHydrated, user?.email, pullFromCloud]);
+
+  // 2. Фоновая синхронизация при возврате на вкладку (переключение между телефоном и ПК)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user && !user.isGuest) {
+        pullFromCloud(user.email);
+      }
+    };
+    const handleOnline = () => {
+      if (user && !user.isGuest) {
+        pullFromCloud(user.email);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [user, pullFromCloud]);
+
+  // 3. Отложенный Push в облако при изменении техники или записей ТО
+  useEffect(() => {
+    if (!isHydrated || !user || user.isGuest) return;
+    const timer = setTimeout(() => {
+      pushToCloud(user.email, vehicles, serviceLogs);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [vehicles, serviceLogs, isHydrated, user?.email, user?.isGuest, pushToCloud]);
+
+  const login = async (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const newUser = { email: cleanEmail, isGuest: false };
+    setUser(newUser);
+    await pullFromCloud(cleanEmail);
   };
 
   const loginAsGuest = () => {
     setUser({ email: 'гость (офлайн)', isGuest: true });
+    setSyncStatus('idle');
   };
 
   const logout = () => {
     setUser(null);
+    setSyncStatus('idle');
+    setSyncMessage(null);
   };
 
   const updateVehicleReading = (vehicleId: string, hours?: number, km?: number) => {
@@ -374,6 +528,10 @@ export function GarageProvider({ children }: { children: React.ReactNode }) {
         logout,
         shareToCommunity,
         upvoteCommunityPreset,
+        syncStatus,
+        syncMessage,
+        lastSyncedAt,
+        syncNow,
       }}
     >
       {children}

@@ -1,5 +1,7 @@
 export type MetricType = 'hours' | 'km';
 
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error' | 'unconfigured';
+
 export type VehicleCategory = 
   | 'road_moto' 
   | 'enduro_pit' 
