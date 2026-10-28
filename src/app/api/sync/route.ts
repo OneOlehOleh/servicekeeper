@@ -46,7 +46,6 @@ function getBlobToken(): string | undefined {
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     return process.env.BLOB_READ_WRITE_TOKEN;
   }
-  // Поиск префиксных токенов (например SERVICEKEEPER_BLOB_READ_WRITE_TOKEN)
   for (const [key, val] of Object.entries(process.env)) {
     if (key.includes('BLOB') && typeof val === 'string' && val.startsWith('vercel_blob_rw_')) {
       return val;
@@ -58,6 +57,12 @@ function getBlobToken(): string | undefined {
     }
   }
   return undefined;
+}
+
+// Надежный безопасный путь без спецсимволов URL
+function getSafeBlobPath(email: string): string {
+  const safe = email.trim().toLowerCase().replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `fleets/${safe}.json`;
 }
 
 // Чтение из Vercel Blob с поддержкой Private и Public хранилищ
@@ -73,17 +78,14 @@ async function readBlobPayload(blobPath: string, token: string): Promise<SyncPay
       const text = await new Response(res.stream).text();
       return JSON.parse(text);
     }
-    if (res === null) {
-      return null;
-    }
   } catch (err: any) {
     const msg = err?.message || '';
     if (!msg.includes('404')) {
-      console.warn('Private blob get attempt:', msg);
+      console.warn('Private blob get error for', blobPath, ':', msg);
     }
   }
 
-  // 2. Фоллбек: get() с public доступом (если хранилище создано как public)
+  // 2. Фоллбек: get() с public доступом
   try {
     const res = await get(blobPath, {
       access: 'public',
@@ -94,17 +96,23 @@ async function readBlobPayload(blobPath: string, token: string): Promise<SyncPay
       const text = await new Response(res.stream).text();
       return JSON.parse(text);
     }
-    if (res === null) {
-      return null;
-    }
   } catch {
     // игнорируем ошибку public фоллбека
   }
 
-  // 3. Дополнительный фоллбек через list() с авторизацией Bearer
+  // 3. Фоллбек через list() — находим точное имя файла в хранилище
   try {
     const { blobs } = await list({ prefix: blobPath, limit: 1, token });
     if (blobs && blobs.length > 0) {
+      const exactPath = blobs[0].pathname;
+      try {
+        const directRes = await get(exactPath, { access: 'private', token, useCache: false });
+        if (directRes && directRes.stream) {
+          const text = await new Response(directRes.stream).text();
+          return JSON.parse(text);
+        }
+      } catch {}
+
       const downloadUrl = blobs[0].downloadUrl || blobs[0].url;
       const res = await fetch(downloadUrl, {
         headers: { Authorization: `Bearer ${token}` },
@@ -204,8 +212,13 @@ export async function GET(req: NextRequest) {
     // 1. Попытка через Vercel Blob (приоритет)
     if (blobToken) {
       try {
-        const blobPath = `fleets/${encodeURIComponent(email)}.json`;
-        const blobData = await readBlobPayload(blobPath, blobToken);
+        const safePath = getSafeBlobPath(email);
+        const encodedPath = `fleets/${encodeURIComponent(email)}.json`;
+
+        let blobData = await readBlobPayload(safePath, blobToken);
+        if (!blobData && safePath !== encodedPath) {
+          blobData = await readBlobPayload(encodedPath, blobToken);
+        }
 
         if (blobData) {
           return NextResponse.json({
@@ -331,13 +344,15 @@ export async function POST(req: NextRequest) {
     // 1. Сохранение в Vercel Blob
     if (blobToken) {
       try {
-        const blobPath = `fleets/${encodeURIComponent(cleanEmail)}.json`;
-        await writeBlobPayload(blobPath, payload, blobToken);
+        const safePath = getSafeBlobPath(cleanEmail);
+        const putResult = await writeBlobPayload(safePath, payload, blobToken);
 
         return NextResponse.json({
           configured: true,
           success: true,
           storageType: 'vercel_blob',
+          savedPath: safePath,
+          blobResultPathname: putResult?.pathname,
           savedAt: payload.updatedAt,
         });
       } catch (err: any) {
