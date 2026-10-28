@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs';
 import path from 'node:path';
+import { put, list } from '@vercel/blob';
 
 // -----------------------------------------------------------------------------
 // Серверный API синхронизации автопарка между устройствами
 // -----------------------------------------------------------------------------
 // Поддерживает:
-// 1. Vercel KV / Upstash Redis (в продакшене через KV_REST_API_URL & KV_REST_API_TOKEN)
-// 2. Локальное хранилище в dev-режиме (.dev-sync-storage.json) для тестирования
+// 1. Vercel KV / Upstash Redis (через KV_REST_API_URL / UPSTASH_REDIS_REST_URL)
+// 2. Vercel Blob (через BLOB_READ_WRITE_TOKEN)
+// 3. Локальный dev-файл (.dev-sync-storage.json) при локальной разработке
 // -----------------------------------------------------------------------------
 
 interface SyncPayload {
@@ -19,7 +21,6 @@ interface SyncPayload {
 
 const DEV_STORAGE_FILE = path.resolve('.dev-sync-storage.json');
 
-// Чтение данных из локального dev-файла
 function readDevStorage(): Record<string, SyncPayload> {
   try {
     if (fs.existsSync(DEV_STORAGE_FILE)) {
@@ -32,7 +33,6 @@ function readDevStorage(): Record<string, SyncPayload> {
   return {};
 }
 
-// Запись данных в локальный dev-файл
 function writeDevStorage(data: Record<string, SyncPayload>) {
   try {
     fs.writeFileSync(DEV_STORAGE_FILE, JSON.stringify(data, null, 2), 'utf8');
@@ -41,14 +41,12 @@ function writeDevStorage(data: Record<string, SyncPayload>) {
   }
 }
 
-// Вспомогательная функция для обращения к Upstash / Vercel KV REST API
+// Запрос к Upstash / Vercel KV
 async function executeKvCommand(command: any[]): Promise<any> {
   const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
   const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-  if (!kvUrl || !kvToken) {
-    return null;
-  }
+  if (!kvUrl || !kvToken) return null;
 
   const res = await fetch(kvUrl, {
     method: 'POST',
@@ -61,16 +59,14 @@ async function executeKvCommand(command: any[]): Promise<any> {
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    console.error('KV REST error:', res.status, errText);
-    throw new Error(`KV REST command failed: ${res.status}`);
+    throw new Error(`KV REST failed with status: ${res.status}`);
   }
 
   const json = await res.json();
   return json?.result;
 }
 
-// GET: Получить актуальное состояние гаража пользователя по email
+// GET: Получить актуальное состояние гаража по email
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -81,10 +77,10 @@ export async function GET(req: NextRequest) {
     }
 
     const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const isConfigured = Boolean(kvUrl);
+    const hasBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
-    // 1. Попытка чтения из Vercel KV / Upstash Redis
-    if (isConfigured) {
+    // 1. Попытка через Vercel KV / Upstash Redis
+    if (kvUrl) {
       try {
         const key = `user:fleet:${email}`;
         const rawResult = await executeKvCommand(['GET', key]);
@@ -106,15 +102,41 @@ export async function GET(req: NextRequest) {
           data: null,
         });
       } catch (err: any) {
-        console.error('Failed to fetch from Vercel KV:', err);
-        return NextResponse.json(
-          { configured: true, error: 'Ошибка чтения из облачного хранилища' },
-          { status: 500 }
-        );
+        console.error('Failed to read from KV:', err);
       }
     }
 
-    // 2. Если в dev-режиме (на локальном компьютере)
+    // 2. Попытка через Vercel Blob
+    if (hasBlob) {
+      try {
+        const blobPath = `fleets/${encodeURIComponent(email)}.json`;
+        const { blobs } = await list({ prefix: blobPath, limit: 1 });
+
+        if (blobs && blobs.length > 0) {
+          const blobRes = await fetch(blobs[0].url, { cache: 'no-store' });
+          if (blobRes.ok) {
+            const data = await blobRes.json();
+            return NextResponse.json({
+              configured: true,
+              storageType: 'vercel_blob',
+              found: true,
+              data,
+            });
+          }
+        }
+
+        return NextResponse.json({
+          configured: true,
+          storageType: 'vercel_blob',
+          found: false,
+          data: null,
+        });
+      } catch (err: any) {
+        console.error('Failed to read from Vercel Blob:', err);
+      }
+    }
+
+    // 3. Локальный dev-режим
     if (process.env.NODE_ENV !== 'production') {
       const devStorage = readDevStorage();
       const userFleet = devStorage[email];
@@ -127,20 +149,20 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. В продакшене без подключенного KV
+    // 4. Продакшн без подключенной базы
     return NextResponse.json({
       configured: false,
       storageType: 'none',
       found: false,
-      message: 'Облачное хранилище Vercel KV еще не подключено в панели Vercel.',
+      message: 'Облачное хранилище (Blob или KV) еще не подключено в панели Vercel.',
       data: null,
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Внутренняя ошибка сервера' }, { status: 500 });
+    return NextResponse.json({ error: e.message || 'Ошибка сервера' }, { status: 500 });
   }
 }
 
-// POST: Сохранить актуальное состояние гаража (Push изменений)
+// POST: Сохранить актуальное состояние гаража
 export async function POST(req: NextRequest) {
   try {
     let body: any;
@@ -169,29 +191,25 @@ export async function POST(req: NextRequest) {
     };
 
     const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const isConfigured = Boolean(kvUrl);
+    const hasBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
     // 1. Сохранение в Vercel KV / Upstash Redis
-    if (isConfigured) {
+    if (kvUrl) {
       try {
         const key = `user:fleet:${cleanEmail}`;
-
-        // Конфликт-резолюшн: проверяем, нет ли в облаке более новой версии
         const existingRaw = await executeKvCommand(['GET', key]);
+
         if (existingRaw) {
           const existing = typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw;
           if (existing?.updatedAt && existing.updatedAt > payload.updatedAt) {
-            // В облаке более свежие данные (с другого устройства)
             return NextResponse.json({
               configured: true,
               conflict: true,
-              message: 'В облаке есть более свежие изменения с другого устройства',
               cloudData: existing,
             });
           }
         }
 
-        // Сохраняем свежие данные
         await executeKvCommand(['SET', key, JSON.stringify(payload)]);
 
         return NextResponse.json({
@@ -201,27 +219,34 @@ export async function POST(req: NextRequest) {
           savedAt: payload.updatedAt,
         });
       } catch (err: any) {
-        console.error('Failed to save to Vercel KV:', err);
-        return NextResponse.json(
-          { configured: true, error: 'Ошибка записи в облачное хранилище' },
-          { status: 500 }
-        );
+        console.error('Failed to write to KV:', err);
       }
     }
 
-    // 2. Если в dev-режиме
-    if (process.env.NODE_ENV !== 'production') {
-      const devStorage = readDevStorage();
-      const existing = devStorage[cleanEmail];
+    // 2. Сохранение в Vercel Blob
+    if (hasBlob) {
+      try {
+        const blobPath = `fleets/${encodeURIComponent(cleanEmail)}.json`;
+        await put(blobPath, JSON.stringify(payload), {
+          access: 'public',
+          addRandomSuffix: false,
+          contentType: 'application/json',
+        });
 
-      if (existing?.updatedAt && existing.updatedAt > payload.updatedAt) {
         return NextResponse.json({
           configured: true,
-          conflict: true,
-          cloudData: existing,
+          success: true,
+          storageType: 'vercel_blob',
+          savedAt: payload.updatedAt,
         });
+      } catch (err: any) {
+        console.error('Failed to write to Vercel Blob:', err);
       }
+    }
 
+    // 3. Локальный dev-режим
+    if (process.env.NODE_ENV !== 'production') {
+      const devStorage = readDevStorage();
       devStorage[cleanEmail] = payload;
       writeDevStorage(devStorage);
 
@@ -233,14 +258,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Продакшн без KV
+    // 4. Продакшн без хранилища
     return NextResponse.json({
       configured: false,
       success: false,
       storageType: 'none',
-      message: 'Облачное хранилище Vercel KV не настроено. Данные сохранены только локально в браузере.',
+      message: 'Облачное хранилище не подключено в панели Vercel.',
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Внутренняя ошибка сервера' }, { status: 500 });
+    return NextResponse.json({ error: e.message || 'Ошибка сервера' }, { status: 500 });
   }
 }
