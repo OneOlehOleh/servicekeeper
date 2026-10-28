@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useGarage } from '@/context/GarageContext';
 import { AuthModal } from '@/components/AuthModal';
+import { FeedbackModal } from '@/components/FeedbackModal';
 import {
   Wrench,
   Clock,
@@ -12,11 +13,13 @@ import {
   Check,
   Layers,
   ChevronRight,
+  MessageSquarePlus,
 } from 'lucide-react';
 
 export function LandingPage() {
   const { loginAsGuest } = useGarage();
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | null>(null);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col selection:bg-zinc-800 selection:text-zinc-100 font-sans">
@@ -236,9 +239,21 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-zinc-900 py-8 px-4 text-center text-xs text-zinc-600">
-        <div>ServiceKeeper — сервис ведения регламентов техники</div>
+      <footer className="mt-auto border-t border-zinc-900 py-8 px-4 text-center text-xs text-zinc-600 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+        <span>ServiceKeeper — сервис ведения регламентов техники</span>
+        <span className="hidden sm:inline text-zinc-800">•</span>
+        <button
+          type="button"
+          onClick={() => setIsFeedbackOpen(true)}
+          className="text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1.5"
+        >
+          <MessageSquarePlus className="w-3.5 h-3.5" />
+          <span>Обратная связь</span>
+        </button>
       </footer>
+
+      {/* Feedback Modal */}
+      {isFeedbackOpen && <FeedbackModal onClose={() => setIsFeedbackOpen(false)} />}
 
       {/* Auth Modal */}
       {authModalMode && (

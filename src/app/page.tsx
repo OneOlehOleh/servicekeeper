@@ -12,6 +12,7 @@ import { QuickSpecsModal } from '@/components/QuickSpecsModal';
 import { ServiceHistoryModal } from '@/components/ServiceHistoryModal';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { BackupModal } from '@/components/BackupModal';
+import { FeedbackModal } from '@/components/FeedbackModal';
 import {
   Wrench,
   PlusCircle,
@@ -26,6 +27,7 @@ import {
   Loader2,
   WifiOff,
   AlertTriangle,
+  MessageSquarePlus,
 } from 'lucide-react';
 
 export default function Home() {
@@ -42,6 +44,7 @@ export default function Home() {
   const [historyTargetVehicle, setHistoryTargetVehicle] = useState<Vehicle | null>(null);
   const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
 
   // Compute fleet urgency stats
   const fleetStats = useMemo(() => {
@@ -175,6 +178,16 @@ export default function Home() {
             >
               <Database className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Бэкап</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsFeedbackOpen(true)}
+              className="p-2 sm:px-3 sm:py-1.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-medium flex items-center gap-1.5 transition-colors border border-zinc-800/80"
+              title="Обратная связь: сообщить об ошибке или предложить идею"
+            >
+              <MessageSquarePlus className="w-3.5 h-3.5 text-zinc-400" />
+              <span className="hidden sm:inline">Отзыв</span>
             </button>
 
             <button
@@ -461,6 +474,7 @@ export default function Home() {
       )}
 
       {isBackupOpen && <BackupModal onClose={() => setIsBackupOpen(false)} />}
+      {isFeedbackOpen && <FeedbackModal onClose={() => setIsFeedbackOpen(false)} />}
     </div>
   );
 }
