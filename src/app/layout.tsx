@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { GarageProvider } from '@/context/GarageContext';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'ServiceKeeper — Сервисный журнал техники',
@@ -32,7 +33,10 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-amber-500 selection:text-slate-950">
-        <GarageProvider>{children}</GarageProvider>
+        <GarageProvider>
+          {children}
+          <Analytics />
+        </GarageProvider>
       </body>
     </html>
   );
